@@ -47,6 +47,34 @@ int trim(char* str) {
 }
 
 int clean(char* str) {
+if (str == NULL) {
+    	return -1; // Code d'erreur pour un paramètre invalide
+	}
+
+	int len = strlen(str);
+	bool is_space = false; // Indique si le dernier caractère était un espace
+	int result_index = 0; // Indice pour la nouvelle chaîne résultante
+
+	for (int i = 0; i < len; i++) {
+    	if (str[i] == ' ') {
+        	if (!is_space) {
+            	// Ajoute un seul espace si ce n'était pas un doublon
+            	str[result_index] = ' ';
+            	result_index++;
+        	}
+        	is_space = true;
+    	} else {
+        	// Ajoute le caractère non espace à la nouvelle chaîne
+        	str[result_index] = str[i];
+        	result_index++;
+        	is_space = false;
+    	}
+	}
+
+	// Termine la chaîne résultante
+	str[result_index] = '\0';
+
+	return strlen(str);
 
 }
 
