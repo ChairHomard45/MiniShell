@@ -13,6 +13,7 @@
 
 #include <stddef.h>
 //#include <ctype.h>//Pour la version avec isspace
+typedef enum {false, true} bool;
 
 int trim(char* str) {
       if (str == NULL) {
