@@ -1,8 +1,8 @@
 /*
   Projet minishell - Licence 3 Info - PSI 2023
-  
-  Nom : Delepaut
-  Prénom : Clement
+    
+  Nom : Delepaut Courtin-coin
+  Prénom : Clement Theo
   Num. étudiant : 22108706
   Groupe de projet : 15
   Date :
