@@ -1,10 +1,10 @@
 /*
   Projet minishell - Licence 3 Info - PSI 2023
  
-  Nom :
-  Prénom :
-  Num. étudiant :
-  Groupe de projet :
+  Nom : Delepaut Courtin-coin
+  Prénom : Clement Theo
+  Num. étudiant : 22108706
+  Groupe de projet : 15
   Date :
  
   Interface du minishell.
