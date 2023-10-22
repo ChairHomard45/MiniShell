@@ -1,6 +1,6 @@
 # MiniShell
 
-MiniShell qui doit être capable de réaliser d'utiliser au minium:
+MiniShell doit être capable de réaliser d'utiliser au minium:
 - Les commandes intégrés comme $cd [dir] ou $exit [n].
 - Des commandes simples en 'premier plan' ou 'arriere plan'  $commande ou $commande & ou $commande1 ; commande2 ; commande3 & commande4 ; ... .
 - Les redirections entre-sortie:
