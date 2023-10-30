@@ -73,4 +73,12 @@ int export(const char* var, const char* value, int fderr);
  */
 int exit_shell(int ret, int fderr);
 
+/**
+ * @brief affiche la chaine ou le contenu du fichier ou le retour d'execution
+ * 
+ * @param p processus contenant les arguments nécessaires
+ * @return 0 si succes, 1 sinon
+ */
+int echo(cmd_t * p);
+
 #endif
