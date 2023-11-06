@@ -11,6 +11,14 @@
  
  */
 
+
+#include "cmd.h"
+#include "builtin.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
 int is_builtin(const char* cmd) {
   if (strcmp(cmd, "cd") == 0 || strcmp(cmd, "exit") == 0 || strcmp(cmd, "export") == 0 || strcmp(cmd, "echo") == 0) {
         return 1; // Command is a built-in command
@@ -26,7 +34,7 @@ int builtin(cmd_t* cmd) {
     }else if (strcmp(cmd->path, "export") == 0) {
         return export(cmd->argv[0],cmd->argv[1],cmd->sterr);
     }else if (strcmp(cmd->path, "echo") == 0) {
-        return echo(cmd);
+       return echo(cmd);
     }
     return -1; // Unrecognized command
 }
@@ -59,36 +67,114 @@ int export(const char* var, const char* value, int fderr) {
  * @return 0 si succes, 1 sinon
  */
 int echo(cmd_t * p) {
-  if (!strcmp(p->argv[0], "-s")) { //string
-    if (!p->argv[1]) {
-      write(p->sterr, "Arguments insuffisants\n", 24); 
-      return 1;
+  FILE* output = stdout; // Default output to stdout	
+  FILE* input = stdin; // Default input from stdin
+
+  if (!strcmp(p->argv[0], "-s")) { // String input
+        if (!p->argv[1]) {
+            fprintf(stderr, "Insufficient arguments\n");
+            return 1;
+        }
+        int j = 1;
+        while (p->argv[j] != NULL) {
+            printf("%s ", p->argv[j]); // Display the string
+            j++;
+        }
+        printf("\n");
+        return 0;
     }
-    printf("%s\n", p->argv[1]); //affiche la chaine
-    return 0;
-  }
-  if (!strcmp(p->argv[0], "-f")) { //file
-    if (!p->argv[1]) {
-      write(p->sterr, "Arguments insuffisants\n", 24);
-      return 1;
+    else if (!strcmp(p->argv[0], "-f")) { // File input
+        if (!p->argv[1]) {
+            fprintf(stderr, "Insufficient arguments\n");
+            return 1;
+        }
+        char print[MAX_LINE_SIZE];
+        FILE* file = fopen(p->argv[1], "r"); // Open the file for reading
+        if (!file) {
+            fprintf(stderr, "File not found\n");
+            return 1;
+        }
+        while (fgets(print, MAX_LINE_SIZE, file)) {
+            printf("%s", print); // Display each line in the file
+        }
+        printf("\n");
+        fclose(file); // Close the file
+        return 0;
+    }else {
+        // Check for output redirection operators
+        for (int i = 1; p->argv[i] != NULL; i++) {
+            if (strcmp(p->argv[i], ">") == 0) { // Output redirection (>)
+                if (p->argv[i + 1] != NULL) {
+                    output = fopen(p->argv[i + 1], "w");
+                    if (!output) {
+                        fprintf(stderr, "Error opening file for writing\n");
+                        return 1;
+                    }
+                }
+                else {
+                    fprintf(stderr, "Insufficient arguments for output redirection\n");
+                    return 1;
+                }
+            }
+            else if (strcmp(p->argv[i], ">>") == 0) { // Output redirection (>>)
+                if (p->argv[i + 1] != NULL) {
+                    output = fopen(p->argv[i + 1], "a");
+                    if (!output) {
+                        fprintf(stderr, "Error opening file for writing\n");
+                        return 1;
+                    }
+                }
+                else {
+                    fprintf(stderr, "Insufficient arguments for output redirection\n");
+                    return 1;
+                }
+            }
+            else if (strcmp(p->argv[i], "<") == 0) { // Input redirection (<)
+                if (p->argv[i + 1] != NULL) {
+                    input = fopen(p->argv[i + 1], "r");
+                    if (!input) {
+                        fprintf(stderr, "Error opening file for reading\n");
+                        return 1;
+                    }
+                }
+                else {
+                    fprintf(stderr, "Insufficient arguments for input redirection\n");
+                    return 1;
+                }
+            }else if (strcmp(p->argv[i], "<<") == 0) { // Here-document redirection (<<)
+                if (p->argv[i + 1] != NULL) {
+                    // Read input until the delimiter
+                    char delimiter[MAX_LINE_SIZE];
+                    strcpy(delimiter, p->argv[i + 1]);
+
+                    char input_line[MAX_LINE_SIZE];
+                    while (fgets(input_line, MAX_LINE_SIZE, stdin) != NULL) {
+                        // Check if the line matches the delimiter
+                        if (strcmp(input_line, delimiter) == 0) {
+                            break; // Exit the loop if delimiter is found
+                        }
+                        fprintf(output, "%s", input_line); // Output the line
+                    }
+                }
+                else {
+                    fprintf(stderr, "Insufficient arguments for here-document redirection\n");
+                    return 1;
+                }
+            
+        }
     }
-    char print[MAX_LINE_SIZE];
-    FILE * file = fopen(p->argv[1], "r"); //ouvre le fichier
-    if (!file) { //fichier introuvable
-      write(p->sterr, "Le fichier n'a pas été trouvé\n", 34);
-      return 1;
     }
-    while (fgets(print, MAX_LINE_SIZE, file)) {
-      printf("%s", print); //affiche la ligne
+    if (output != stdout) {
+        fclose(output); // Close the file if output was redirected
     }
+    
+    if (input != stdin) {
+        fclose(input); // Close the file if input was redirected
+    }
+    
     printf("\n");
     return 0;
-  }
-  printf("\n");
-  return 0;
 }
-
-
 int exit_shell(int ret, int fderr) {
   dprintf(fderr, "Exiting the shell with code %d\n", ret);
     exit(ret);
