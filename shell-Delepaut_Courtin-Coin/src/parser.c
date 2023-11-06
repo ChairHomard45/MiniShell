@@ -198,6 +198,7 @@ if(str == NULL || s == NULL || max <= 0){printf("Problème paramètres");return 
     return strlen(str);
 }
 
+
 int substenv(char* str, size_t max) {
     if (str == NULL || max <= 0) {
         printf("Invalid parameters\n");
@@ -279,6 +280,7 @@ int substenv(char* str, size_t max) {
     str[strLen] = '\0';
     return strLen;
 }
+
 
 
 //Only works for ${..}
