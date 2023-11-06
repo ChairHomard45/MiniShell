@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-//#include <ctype.h>//Pour la version avec isspace
+#include <ctype.h> //Pour la version avec isspace et le substenv
 
 
 
