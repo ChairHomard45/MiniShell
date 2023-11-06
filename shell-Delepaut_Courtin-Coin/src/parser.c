@@ -200,57 +200,141 @@ if(str == NULL || s == NULL || max <= 0){printf("Problème paramètres");return 
 
 int substenv(char* str, size_t max) {
     if (str == NULL || max <= 0) {
+        printf("Invalid parameters\n");
         return -1; // Invalid parameters
     }
 
-    char* out = (char*)calloc(max, sizeof(char));
-    int Ecriture = 0;
-    int Lecture = 0;
+    size_t strLen = strlen(str);
 
-    while (str[Lecture] != '\0' && Ecriture < max - 1) {
-        if (str[Lecture] == '$' && (str[Lecture + 1] == '{' || (str[Lecture + 1] != ' ' && str[Lecture + 1] != '\0'))) {
-            size_t varStart = Lecture + (str[Lecture + 1] == '{' ? 2 : 1);
-            char* envVar = str + varStart;
+    for (size_t i = 0; i < strLen; ++i) {
+        if (str[i] == '$' && i + 1 < strLen) {
+            if (str[i + 1] == '{') {
+                size_t start = i + 2;
+                size_t end = start;
 
-            int terminateChar = (str[Lecture + 1] == '{') ? '}' : ' ';
+                while (end < strLen && str[end] != '}') {
+                    ++end;
+                }
 
-            size_t varLen = strcspn(envVar, &terminateChar);
-            str[Lecture + varStart + varLen] = '\0';
+                if (end < strLen) {
+                    char varName[64];
+                    strncpy(varName, str + start, end - start);
+                    varName[end - start] = '\0';
 
-            char* envValue = getenv(envVar);
+                    char* envValue = getenv(varName);
 
-            if (envValue != NULL) {
-                size_t envLen = strlen(envValue);
-                if (Ecriture + envLen < max) {
-                    strncpy(out + Ecriture, envValue, envLen);
-                    Ecriture += envLen;
+                    if (envValue != NULL) {
+                        size_t envValueLen = strlen(envValue);
+                        size_t replaceLen = end - i + 1;
 
-                    if (str[Lecture + varStart + varLen] == ' ') {
-                        out[Ecriture++] = ' ';
+                        if (envValueLen <= max - strLen + replaceLen) {
+                            memmove(str + i + envValueLen, str + end + 1, strLen - end);
+                            memcpy(str + i, envValue, envValueLen);
+                            strLen = strLen - replaceLen + envValueLen;
+                            i += envValueLen - 1;
+                        } else {
+                            printf("Insufficient space to substitute the variable\n");
+                            return -1; // Insufficient space
+                        }
+                    } else {
+                        printf("Environment variable '%s' not found\n", varName);
+                        // Handle the case where the environment variable is not found as needed
                     }
                 }
-            }else{
-                
-            }
+            } else {
+                size_t start = i + 1;
+                size_t end = start;
 
-            Lecture += varStart + varLen;
-        } else {
-            out[Ecriture++] = str[Lecture++];
+                while (end < strLen && (isalnum(str[end]) || str[end] == '_')) {
+                    ++end;
+                }
+
+                char varName[64];
+                strncpy(varName, str + start, end - start);
+                varName[end - start] = '\0';
+
+                char* envValue = getenv(varName);
+
+                if (envValue != NULL) {
+                    size_t envValueLen = strlen(envValue);
+                    size_t replaceLen = end - i;
+
+                    if (envValueLen <= max - strLen + replaceLen) {
+                        memmove(str + i + envValueLen, str + end, strLen - end);
+                        memcpy(str + i, envValue, envValueLen);
+                        strLen = strLen - replaceLen + envValueLen;
+                        i += envValueLen - 1;
+                    } else {
+                        printf("Insufficient space to substitute the variable\n");
+                        return -1; // Insufficient space
+                    }
+                } else {
+                    printf("Environment variable '%s' not found\n", varName);
+                    // Handle the case where the environment variable is not found as needed
+                }
+            }
         }
     }
 
-    out[Ecriture] = '\0';
+    str[strLen] = '\0';
+    return strLen;
+}
 
-    if (Ecriture < max) {
-        strcpy(str, out);
-    } else {
-        str[max - 1] = '\0';
+
+//Only works for ${..}
+/*
+int substenv(char* str, size_t max) {
+    if (str == NULL || max <= 0) {
+        printf("Invalid parameters\n");
+        return -1; // Invalid parameters
     }
 
-    free(out);
+    size_t strLen = strlen(str);
+    size_t dif = 0;
 
-    return 0;
+    for (size_t i = 0; i < strLen; ++i) {
+        if (str[i] == '$' && i + 1 < strLen) {
+            if (str[i + 1] == '{') {
+                size_t start = i + 2;
+                size_t end = start;
+
+                while (end < strLen && str[end] != '}') {
+                    ++end;
+                }
+
+                if (end < strLen) {
+                    char varName[64];
+                    strncpy(varName, str + start, end - start);
+                    varName[end - start] = '\0';
+
+                    char* envValue = getenv(varName);
+
+                    if (envValue != NULL) {
+                        size_t envValueLen = strlen(envValue);
+                        size_t replaceLen = end - i + 1;
+
+                        if (envValueLen <= max - strLen + replaceLen) {
+                            memmove(str + i + envValueLen, str + end + 1, strLen - end);
+                            memcpy(str + i, envValue, envValueLen);
+                            strLen = strLen - replaceLen + envValueLen;
+                            i += envValueLen - 1;
+                        } else {
+                            printf("Insufficient space to substitute the variable\n");
+                            return -1; // Insufficient space
+                        }
+                    } else {
+                        printf("Environment variable '%s' not found\n", varName);
+                        // Handle the case where the environment variable is not found as needed
+                    }
+                }
+            }
+        }
+    }
+
+    str[strLen] = '\0';
+    return strLen;
 }
+*/
 
 
 int strcut(char* str, char sep, char** tokens, size_t max) {
