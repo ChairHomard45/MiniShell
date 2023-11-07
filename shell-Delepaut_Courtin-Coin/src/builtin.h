@@ -81,4 +81,13 @@ int exit_shell(int ret, int fderr);
  */
 int echo(cmd_t * p);
 
+/**
+ * @brief Enlève la valeur a associé a la variable 
+ * 
+ * @param var variable a 
+ * @return 0 si succes, 1 sinon
+ */
+int unset(const char *var);
+
+
 #endif
