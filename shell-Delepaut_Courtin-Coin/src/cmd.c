@@ -121,6 +121,61 @@ int init_cmd(cmd_t* p) {
 
 
 
+/**
+ * @brief La chaine passée en argument est-elle un séparateur ?
+ *
+ * @param tok La chaine de caractères à tester
+ * @return 1 si tok est un séparateur
+ *         0 sinon
+ */
+int is_sep(char * tok) {
+  if (!tok) return 0;
+  switch (tok[0])
+  {
+  case ';':
+    return 1;
+  case '!':
+    return 1;
+  case '|': // détecte | et ||
+    return 1;
+  case '&': // détecte & et &&
+    return 1;
+  case '>': // détecte >, >> et >&2
+    return 1;
+  case '<': // détecte <, <<, <<<
+    return 1;
+  case '2': // détecte 2>, 2>>, 2>&1
+    if (strlen(tok) >= 2 && tok[1] == '>')
+      return 1;
+    break;
+  }
+  return 0;
+}
+
+
+/**
+ * @brief la chaine passée en argument est-elle un séparateur de redirection ?
+ *
+ * @param tok la chaine de caractères à tester
+ * @return 1 si tok est une redirection simple
+ *         0 si tok est un pipe ou & ou && ou || ou ;
+ */
+int is_red(char * tok) {
+  switch (tok[0])
+  {
+  case ';':
+    return 0;
+  case '|': // détecte | et ||
+    return 0;
+  case '&': // détecte & et &&
+    return 0;
+  default :
+    return 1;
+  }
+}
+
+
+
 
 /**
  * @brief remplis le tableau de commandes en fonction du contenu de tokens.
@@ -131,83 +186,158 @@ int init_cmd(cmd_t* p) {
  * @return 0 ou code d'erreur quand terminer
  */
 int parse_cmd(char* tokens[], cmd_t* cmds, size_t max) {
-    int cmd_index = 0;
-    int token_index = 0;
-
-
-    // Iterate through the tokens and create cmd_t structures
-    while (tokens[token_index] != NULL) {
-        cmd_t* current_cmd = &cmds[cmd_index];
-
-        // Initialize the cmd_t structure's fields
-        current_cmd->pid = 0; // Initialize as needed
-        current_cmd->status = 0; // Initialize as needed
-        current_cmd->stin = 0; // Initialize as needed
-        current_cmd->stout = 1; // Initialize as needed
-        current_cmd->sterr = 2; // Initialize as needed
-        current_cmd->wait = 0; // Initialize as needed
-
-        current_cmd->path = tokens[token_index];
-        token_index++;
-
-        int argv_index = 0;
-        while (tokens[token_index] != NULL && strcmp(tokens[token_index], "|") != 0) {
-            current_cmd->argv[argv_index] = tokens[token_index];
-            token_index++;
-            argv_index++;
-        }
-        current_cmd->argv[argv_index] = NULL;
-
-         // Check for input/output redirection symbols
-            if (tokens[token_index] != NULL) {
-                if (strcmp(tokens[token_index], ">") == 0) {
-                    token_index++;
-                    // Process output redirection
-                    if (tokens[token_index] != NULL && strcmp(tokens[token_index], ">") == 0) {
-                        // Handle ">>" for appending
-                        token_index++;
-                        current_cmd->stout = open(tokens[token_index], O_WRONLY | O_CREAT | O_APPEND, 0644);
-                    } else {
-                        // Regular output redirection ">"
-                        current_cmd->stout = open(tokens[token_index], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                    }
-                    token_index++;
-                } else if (strcmp(tokens[token_index], "<") == 0) {
-                    token_index++;
-                    // Process input redirection
-                    if (tokens[token_index] != NULL && strcmp(tokens[token_index], "<") == 0) {
-                        // Handle "<<" for a here document
-                        token_index++;
-                        // Handle here document (implementation-specific)
-                    } else {
-                        // Regular input redirection "<"
-                        current_cmd->stin = open(tokens[token_index], O_RDONLY);
-                    }
-                    token_index++;
-                } else if (strcmp(tokens[token_index], "2>") == 0) {
-                    token_index++;
-                    // Process standard error redirection
-                    current_cmd->sterr = open(tokens[token_index], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                    token_index++;
-                } else if (strcmp(tokens[token_index], "2>>") == 0) {
-                    token_index++;
-                    // Process appending standard error
-                    current_cmd->sterr = open(tokens[token_index], O_WRONLY | O_CREAT | O_APPEND, 0644);
-                    token_index++;
-                }
-            }
-
-        // Handle pipe "|" if present and create linkages accordingly
-        if (tokens[token_index] != NULL && strcmp(tokens[token_index], "|") == 0) {
-            token_index++;
-            current_cmd->next = &cmds[cmd_index + 1];
+        int finproc = 0, fd;
+    for (size_t i = 0; i < max; i++) {
+        if (i >= MAX_CMD_SIZE || tokens[i] == NULL) break;
+        if (!is_builtin(tokens[i])) {
+            printf("Commande invalide\n");
+            return 1;
         } else {
-            current_cmd->next = NULL;
+            cmds[finproc].pid = finproc;
+            cmds[finproc].status = 0;
+            cmds[finproc].path = tokens[i];
+            cmds[finproc].next = &cmds[finproc + 1];
+            int j = 0;
+            for (; i < MAX_CMD_SIZE && tokens[i] != NULL && !is_sep(tokens[i]); i++) {
+                cmds[finproc].argv[j] = tokens[i];
+                j++;
+            }
+            cmds[finproc].argv[j] = NULL;
+            if (i >= MAX_CMD_SIZE || tokens[i] == NULL) break;
+
+
+            find_sep: //si ce point est atteint tokens[i] est un séparateur
+      switch (tokens[i][0])
+      {
+      case ';': //on garde les parametres actuels
+        break;
+      case '|': // détecte | et ||
+        if (!strcmp(tokens[i], "||")) {
+          cmds[finproc].next_failure = &cmds[finproc+1]; //ajoute une suite si echec
+          cmds[finproc].next = NULL; //supprime la suite inconditionnelle
         }
+        else { // |
+          if (pipe(cmds[finproc+1].fdclose)) { //crée un pipe
+            printf("Erreur pipe impossible\n");
+            return 1;
+          }
+          cmds[finproc].stout = cmds[finproc+1].fdclose[1]; //ajoute la sortie processus
+          cmds[finproc+1].stin = cmds[finproc+1].fdclose[0]; //ajoute l'entrée au prochain processus
+          cmds[finproc].fdclose[0] = cmds[finproc+1].fdclose[1];
+        }
+        break;
+      case '&': // détecte & et &&
+        if (!strcmp(tokens[i], "&&")) {
+          cmds[finproc].next_success = &cmds[finproc+1]; //ajoute une suite si succes
+          cmds[finproc].next = NULL; //supprime la suite inconditionnelle
+        }
+        else { // &
+          char * r = substenv("RECYCLE", envar);
+          if (r) {
+            cmds[finproc].fdclose[0] = open(r, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+            free(r);
+          } else {
+            r = default_recycle;
+            cmds[finproc].fdclose[0] = open(r, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+            export("RECYCLE", r, 2);
+          }
+          cmds[finproc].next = &cmds[finproc+1];
+          cmds[finproc].wait = 0;
+          if (cmds[finproc].stout == 1)
+            cmds[finproc].stout = cmds[finproc].fdclose[0];
+          if (cmds[finproc].sterr == 2)
+            cmds[finproc].sterr = cmds[finproc].fdclose[0];
+        }
+        break;
+      case '>': // détecte >, >> et >&2
+        if (cmds[finproc].stout > 2) close(cmds[finproc].stout);
+        if (!strcmp(tokens[i], ">")) {
+          if (i+1<MAX_CMD_SIZE && tokens[i+1]!=NULL) {
+            fd = open(tokens[i+1], O_WRONLY | O_CREAT | O_TRUNC, 0640);
+            if (fd != -1){
+              cmds[finproc].stout = fd;
+              cmds[finproc].fdclose[0] = fd;
+              i++;
+              break;
+            } else printf("Le fichier %s n'est pas valide\n", tokens[i+1]);
+          } else printf("Argument fichier manquant\n");
+          return 1;
+        }
+        if (!strcmp(tokens[i], ">>")) {
+          if (i+1<MAX_CMD_SIZE && tokens[i+1]!=NULL) {
+            fd = open(tokens[i+1], O_WRONLY | O_CREAT | O_APPEND, 0640);
+            if (fd != -1) {
+              cmds[finproc].stout = fd;
+              cmds[finproc].fdclose[0] = fd;
+              i++;
+              break;
+            } else printf("Le fichier %s n'est pas valide\n", tokens[i+1]);
+          } else printf("Argument fichier manquant\n");
+          return 1;
+        }
+        if (!strcmp(tokens[i], ">&2")) {
+          cmds[finproc].stout = cmds[finproc].sterr;
+        }
+        break;
+      case '<': // détecte <, <<, <<<
+        if (cmds[finproc].stin > 2) close(cmds[finproc].stin);
+        if (!strcmp(tokens[i], "<")) {
+          if (i+1<MAX_CMD_SIZE && tokens[i+1]!=NULL) {
+            fd = open(tokens[i+1], O_RDONLY, 0640);
+            if (fd != -1) {
+              cmds[finproc].stin = fd;
+              cmds[finproc].fdclose[0] = fd;
+              i++;
+              break;
+            } else printf("Le fichier %s n'est pas valide\n", tokens[i+1]);
+          } else printf("Argument fichier manquant\n");
+        } else printf("<< et <<< ne sont pas pris en charge\n");
+        return 1;
+      case '2': // détecte 2>, 2>>, 2>&1
+        if (cmds[finproc].sterr > 2) close(cmds[finproc].sterr);
+        if (!strcmp(tokens[i], "2>")) {
+          if (i+1<MAX_CMD_SIZE && tokens[i+1]!=NULL) {
+            fd = open(tokens[i+1], O_WRONLY | O_CREAT | O_TRUNC, 0640);
+            if (fd != -1){
+              cmds[finproc].sterr = fd;
+              cmds[finproc].fdclose[0] = fd;
+              i++;
+              break;
+            } else printf("Le fichier %s n'est pas valide\n", tokens[i+1]);
+          } else printf("Argument fichier manquant\n");
+          return 1;
+        }
+        if (!strcmp(tokens[i], "2>>")) {
+          if (i+1<MAX_CMD_SIZE && tokens[i+1]!=NULL) {
+            fd = open(tokens[i+1], O_WRONLY | O_CREAT | O_APPEND, 0640);
+            if (fd != -1) {
+              cmds[finproc].sterr = fd;
+              cmds[finproc].fdclose[0] = fd;
+              i++;
+              break;
+            } else printf("Le fichier %s n'est pas valide\n", tokens[i+1]);
+          } else printf("Argument fichier manquant\n");
+          return 1;
+        }
+        if (!strcmp(tokens[i], "2>&1")) {
+          cmds[finproc].sterr = cmds[finproc].stout;
+          break;
+        }
+      }
+      if (is_red(tokens[i])) {
+        i++;
+        if (i<MAX_CMD_SIZE && tokens[i]){
+          goto find_sep;
+        }
+        //else
+          break;
+      }
 
-        // Increment cmd_index for the next command
-        cmd_index++;
+
+
+
+            finproc++;
+        }
     }
-
-    return 0; // Return 0 or handle error codes accordingly
+    return 0;  // Return 0 or handle error codes accordingly
 }
