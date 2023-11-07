@@ -20,7 +20,7 @@
 #include <unistd.h>
 
 int is_builtin(const char* cmd) {
-  if (strcmp(cmd, "cd") == 0 || strcmp(cmd, "exit") == 0 || strcmp(cmd, "export") == 0 || strcmp(cmd, "echo") == 0) {
+  if (strcmp(cmd, "cd") == 0 || strcmp(cmd, "exit") == 0 || strcmp(cmd, "export") == 0 || strcmp(cmd, "echo") == 0 || strcmp(cmd, "unset") == 0) {
         return 1; // Command is a built-in command
     }
     return 0; // Command is not a built-in command
@@ -35,30 +35,36 @@ int builtin(cmd_t* cmd) {
         return export(cmd->argv[0],cmd->argv[1],cmd->sterr);
     }else if (strcmp(cmd->path, "echo") == 0) {
        return echo(cmd);
+    }else if (strcmp(cmd->path, "unset") == 0) {
+       return unset(cmd->argv[1]);
     }
     return -1; // Unrecognized command
 }
 
 int cd(const char* path, int fderr) {
-  int ret = chdir(path);
-  printf("path:%s",path);
-    if (ret == -1) {
-        dprintf(fderr, "Error: Could not change directory to %s\n", path);
+    if(path == NULL){
+	write(fderr, "Error changement de répertoir: Path NULL",strlen("Error changement de répertoire: Path NULL"));
+        return -1;
     }
-    return ret;
+    if (chdir(path)==-1) {
+        write(fderr, "Error changement de répertoire",strlen("Error changement de répertoire"));
+        return -1;
+    }
+    return 0;
 }
 
 int export(const char* var, const char* value, int fderr) {
   if(!var||!value){
-  	dprintf(fderr,"Error: not enough arguments:%s and %s",var,value);
+  	write(fderr,"Error pas assez d'argument",strlen("Error pas assez d'argument"));
   	return 1;
   }
-  int ret = setenv(var, value, 1);
-    if (ret == -1) {
-        dprintf(fderr, "Error: Could not set environment variable %s to %s\n", var, value);
-    }
-    return ret;
+  if (setenv(var, value, 1) == -1) {
+  	write(fderr, "Error: Could not set environment variable", strlen("Error: Could not set environment variable"));
+  	return -1;
+  }
+    return 0;
 }
+
 
 /**
  * @brief affiche la chaine ou le contenu du fichier ou le retour d'execution
@@ -175,7 +181,12 @@ int echo(cmd_t * p) {
     printf("\n");
     return 0;
 }
+
+int unset(const char* var){
+	unsetenv(var);
+}
+
 int exit_shell(int ret, int fderr) {
-  dprintf(fderr, "Exiting the shell with code %d\n", ret);
-    exit(ret);
+  write(fderr,"Goodbye!",strlen("Goodbye!"));
+  exit(ret);
 }
