@@ -36,7 +36,7 @@ int builtin(cmd_t* cmd) {
     }else if (strcmp(cmd->path, "echo") == 0) {
        return echo(cmd);
     }else if (strcmp(cmd->path, "unset") == 0) {
-       return unset(cmd->argv[1]);
+       return unset(cmd->argv[0]);
     }
     return -1; // Unrecognized command
 }
