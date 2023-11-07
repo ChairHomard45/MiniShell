@@ -18,6 +18,7 @@
 
 #include "parser.h"
 #include "cmd.h"
+#include "builtin.h"
 
 int main(int argc, char* argv[]) {
   char cmdline[MAX_LINE_SIZE]; // buffer des lignes de commandes
@@ -89,23 +90,31 @@ int main(int argc, char* argv[]) {
     printf("Trim:\"%s\"\n",TMPCMDLINE);
     
     //   - ajouter d'éventuels espaces autour de ; ! || && & ...
-    //if(separate_s(TMPCMDLINE,";|&\\><2$",MAX_CMD_SIZE)==0)continue;
-    //printf("Separate:\"%s\"\n",TMPCMDLINE);
+    if(separate_s(TMPCMDLINE,";|&<>!",MAX_CMD_SIZE)==0)continue;
+    printf("Separate:\"%s\"\n",TMPCMDLINE);
 
     //   - supprimer les doublons d'espaces
-    if(clean(TMPCMDLINE)<=0){printf("Clean Fail");continue;}
+    if(clean(TMPCMDLINE)<=0){
+    	printf("Clean Fail");
+    	continue;
+    }
     printf("clean:\"%s\"\n",TMPCMDLINE);
  
  
     //   - traiter les variables d'environnement
-    	if(substenv(TMPCMDLINE,MAX_CMD_SIZE)<0){
-    		printf("Substenv Fail");
-    		continue;
-    	}
-    	printf("Substenv:\"%s\"\n",TMPCMDLINE);
+    if(substenv(TMPCMDLINE,MAX_CMD_SIZE)<0){
+    	printf("Substenv Fail");
+    	continue;
+    }
+    printf("Substenv:\"%s\"\n",TMPCMDLINE);
     	
     // Découper la ligne dans cmdtoks
-    if(strcut(TMPCMDLINE,' ',cmdtoks,MAX_CMD_SIZE)<=0){printf("strcut Fail");continue;}
+    int n;
+    if( (n=strcut(TMPCMDLINE,' ',cmdtoks,MAX_CMD_SIZE))<=0){
+    	printf("strcut Fail");
+    	continue;
+    }
+    
   	for (int i=0; i<MAX_CMD_SIZE; i++) {
      		if (cmdtoks[i] != NULL ){
         		printf("tokens[%d]:\"%s\"\n",i, cmdtoks[i]);
@@ -114,7 +123,7 @@ int main(int argc, char* argv[]) {
     
 
     // Traduire la ligne en structures cmd_t dans cmds
-    if(parse_cmd(cmdtoks,cmds,MAX_CMD_SIZE)!=0){printf("Parse Fail");continue;}
+    if(parse_cmd(cmdtoks,cmds,n)!=0){printf("Parse Fail");continue;}
     current = cmds; // Commence avec la Première commande
 
     // Les commandes sont chaînées en fonction des séparateurs
@@ -125,39 +134,31 @@ int main(int argc, char* argv[]) {
     // Exécuter les commandes dans l'ordre en fonction des opérateurs
     // de flux
     for (current=cmds; current!=NULL; ) {
-      
+      int result2;
       // Lancer la commande
-      exec_cmd(current);
-      if (current->next_success != NULL && current->status == 0) {
+      if(is_builtin(current->path)){
+      	result2 = builtin(current);
+      	// rbeak if result != 0
+      }else{
+      	result2 = exec_cmd(current);
+      	//break aussi
+      }
+      
+      
+      
+    if (current->next_success != NULL && current->status == 0) {
         // If the current command succeeds, move to the next_success command
         current = current->next_success;
     } else if (current->next_failure != NULL && current->status != 0) {
         // If the current command fails, move to the next_failure command
         current = current->next_failure;
-    } else {
+    } else{
         // If no specific condition, move to the next command
         current = current->next;
     }
 
     }
   }
-  if (TMPCMDLINE != NULL) {
-        free(TMPCMDLINE);
-        TMPCMDLINE = NULL;
-    }
-
-    for (int i = 0; i < MAX_CMD_SIZE; i++) {
-        if (cmds[i].path != NULL) {
-            free(cmds[i].path);
-            cmds[i].path = NULL;
-        }
-        for (int j = 0; j < MAX_CMD_SIZE; j++) {
-            if (cmds[i].argv[j] != NULL) {
-                free(cmds[i].argv[j]);
-                cmds[i].argv[j] = NULL;
-            }
-        }
-    }
   
   fprintf(stderr, "\nGood bye!\n");
   return 0;
