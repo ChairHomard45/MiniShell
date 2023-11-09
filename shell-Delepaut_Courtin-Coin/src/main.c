@@ -37,14 +37,14 @@ int main(int argc, char* argv[]) {
     for(int j=0; j<MAX_CMD_SIZE; j++)
       cmds[i].argv[j]=NULL;
   }
-  for (int i = 0; i < MAX_CMD_SIZE; i++) {init_cmd(&cmds[i]);}
-  current=NULL;
   //Récupère les variables pour USER 
   char* user = getenv("USER");
   if (user == NULL) {
     // Handle the case where the "USER" environment variable is not set
     user = "unknown"; // Provide a default value
 }
+
+  int result2;
 
   while (1) {
     printf("\nDebut\n");
@@ -58,11 +58,12 @@ int main(int argc, char* argv[]) {
     }
 
     // Initialiser les valeurs par défaut dans cmds (stdin, stdout, stderr, ...)
-    
+    for (int i = 0; i < MAX_CMD_SIZE; i++) {init_cmd(&cmds[i]);}
+    current=NULL;
 
     //Initialise home_cwd
     getcwd(cwd, MAX_LINE_SIZE-1);
-
+    
     // Afficher un prompt et affiche [USER] [COMPUTER] [ENV] [DIRECTORY] et les met en couleur
     printf("\n\033[32m%s\033[0m \033[35mMINISHELL-WIN\033[0m \033[33m~%s\033[0m",user,cwd);
     printf("\n");
@@ -123,8 +124,10 @@ int main(int argc, char* argv[]) {
     
 
     // Traduire la ligne en structures cmd_t dans cmds
-    if(parse_cmd(cmdtoks,cmds,n)!=0){printf("Parse Fail");continue;}
-    current = cmds; // Commence avec la Première commande
+    if(parse_cmd(cmdtoks,cmds,n)!=0){
+    	printf("Parse Fail");
+    	continue;
+    }
 
     // Les commandes sont chaînées en fonction des séparateurs
     //   - next -> exécution inconditionnelle
@@ -133,33 +136,38 @@ int main(int argc, char* argv[]) {
 
     // Exécuter les commandes dans l'ordre en fonction des opérateurs
     // de flux
-    for (current=cmds; current!=NULL; ) {
-      int result2;
-      // Lancer la commande
-      if(is_builtin(current->path)){
-      	result2 = builtin(current);
-      	// rbeak if result != 0
-      }else{
-      	result2 = exec_cmd(current);
-      	//break aussi
-      }
-      
-      
-      
-    if (current->next_success != NULL && current->status == 0) {
-        // If the current command succeeds, move to the next_success command
-        current = current->next_success;
-    } else if (current->next_failure != NULL && current->status != 0) {
-        // If the current command fails, move to the next_failure command
-        current = current->next_failure;
-    } else{
-        // If no specific condition, move to the next command
-        current = current->next;
+    current = cmds;  // Start with the first command
+    while (current != NULL) {
+    // Launch the command
+    if(current->path == NULL){
+    	break;
+    } else if (is_builtin(current->path)) {
+        result2 = builtin(current);
+    } else {
+        result2 = exec_cmd(current);
     }
 
+    // Check the result of the command execution
+    if (result2 != 0) {
+        break;  // Exit the loop if the command execution fails
     }
+    
+    // Move to the next command structure
+	if (current->next_success != NULL && current->status == 0) {
+    		current = current->next_success;
+    		printf("here1: %s\n", current->path);
+	} else if (current->next_failure != NULL && current->status != 0) {
+    		current = current->next_failure;
+    		printf("here2: %s\n", current->path);
+	} else if (current->next != NULL) {
+    		current = current->next;
+        	printf("here3: current is not NULL\n");
+	} else {
+    		printf("here4: current is NULL\n");
+    		break; // No more commands, exit the loop
+	}
+     }
   }
-  
   fprintf(stderr, "\nGood bye!\n");
   return 0;
 }
