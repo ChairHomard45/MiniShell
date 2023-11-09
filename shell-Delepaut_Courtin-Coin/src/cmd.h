@@ -42,7 +42,6 @@ typedef struct cmd_t {
   struct cmd_t* next_success;
   struct cmd_t* next_failure;
 } cmd_t;
-
 /*
   Lancer la commande en fonction des attributs de
   la structure et initialiser les champs manquants.
@@ -102,7 +101,12 @@ int init_cmd(cmd_t* p);
  */
 int parse_cmd(char* tokens[], cmd_t* cmds, size_t max);
 
+
+void add_fd(int *fdclose,int fd);
+
+void merge_fdclose(int *dest,int *src);
+
+void add_val(int *fdclose, int val);
+
+
 #endif
-
-
-int exec_cmd(cmd_t* p);
