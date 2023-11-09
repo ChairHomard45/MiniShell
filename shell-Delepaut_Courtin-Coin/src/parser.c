@@ -16,7 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <ctype.h> //Pour la version avec isspace et le substenv
+#include <ctype.h>
+//#include <ctype.h>//Pour la version avec isspace
 
 
 
@@ -78,126 +79,14 @@ if (str == NULL) {
 }
 
 int separate_s(char* str, char* s, size_t max) {
-if(str == NULL || s == NULL || max <= 0){printf("Problème paramètres");return -1;}//Problème paramètre
-
-    int indexLec = 0;
-    int indexEcrit = 0;
-    char* out = (char*) calloc(max,sizeof(char));
-
-    while(str[indexLec] != '\0' && indexLec <= max - 1){
-    if(strchr(s,str[indexLec])){
-        if(str[indexLec] == ';'){
-            if(indexLec!=0){if(str[indexLec-1]!=' ') strcat(out," ");indexEcrit++;}
-            strncat(out,str+indexLec,1);
-            indexEcrit++;
-            if (str[indexLec+1] != ' ' && str[indexLec+1] != '\0') {strcat(out, " ");indexEcrit++;}
-        }else if(str[indexLec] == '!'){
-            if(indexLec!=0){if(str[indexLec-1]!=' ') strcat(out," ");indexEcrit++;}
-            strncat(out,str+indexLec,1);indexEcrit++;
-            if (str[indexLec+1] != ' ' && str[indexLec+1] != '\0') {strcat(out, " ");indexEcrit++;}
-        }else if(str[indexLec] == '|'){
-            if(indexLec!=0){if(str[indexLec-1]!=' ' && str[indexLec-1]!='|' ) strcat(out," ");indexEcrit++;}
-            strncat(out,str+indexLec,1);indexEcrit++;
-            if (str[indexLec+1] != ' ' && str[indexLec+1]!='|' && str[indexLec+1] != '\0') {strcat(out, " ");indexEcrit++;}
-        }else if(str[indexLec] == '&'){
-            if(indexLec!=0){if(str[indexLec-1]!=' ' && str[indexLec-1]!='&' ) strcat(out," ");indexEcrit++;}
-            strncat(out,str+indexLec,1);indexEcrit++;
-            if (str[indexLec+1] != ' ' && str[indexLec+1]!='&' && str[indexLec+1] != '\0'){ strcat(out, " ");indexEcrit++;}
-        }else if(str[indexLec] == '\"'){
-            if(indexLec!=0){if(str[indexLec-1]!=' ') strcat(out," ");indexEcrit++;}
-            strncat(out, str+indexLec, 1);indexEcrit++;
-            indexLec++;
-            while((str[indexLec]!='\"' || str[indexLec-1]=='\\') && str[indexLec]!='\0'){strncat(out,str+indexLec,1); indexLec++;indexEcrit++;}
-            strncat(out, str+indexLec, 1);indexEcrit++;
-            indexLec++;
-            if (str[indexLec+1] != ' ' && str[indexLec+1] != '\0') {strcat(out, " ");indexEcrit++;}
-        }else if(str[indexLec] == '\\'){
-            strncat(out, str+indexLec, 1);indexEcrit++;
-            indexLec++;
-            strncat(out, str+indexLec, 1);indexEcrit++;
-        }else if(str[indexLec] == '>'){
-            if(indexLec!=0){if(str[indexLec-1]!=' ') strcat(out," ");indexEcrit++;}
-            strncat(out, str+indexLec, 1);indexEcrit++;
-            if(str[indexLec+1]== '>'){
-                indexLec++;
-                strncat(out, str+indexLec, 1);indexEcrit++;
-                
-            }
-            if(str[indexLec+1]== '&'){
-                if(str[indexLec+2]!='2') {strcat(out," ");indexEcrit++;}
-                else{
-                    indexLec++;
-                    strncat(out, str+indexLec, 2);indexEcrit+=2;
-                    indexLec++;
-                }
-            }
-            if (str[indexLec+1] != ' ' && str[indexLec+1] != '\0') {strcat(out, " ");indexEcrit++;}
-        }else if(str[indexLec] == '<'){
-            if(indexLec!=0){if(str[indexLec-1]!=' ') strcat(out," ");indexEcrit++;}
-            strncat(out, str+indexLec, 1);indexEcrit++;
-            if (str[indexLec+1] == '<') {
-                strncat(out, str+indexLec, 1);indexEcrit++;
-                indexLec++;
-                if (str[indexLec+1] == '<') {
-                strncat(out, str+indexLec, 1);indexEcrit++;
-                indexLec++;
-                }
-            }
-           if (str[indexLec+1] != ' ' && str[indexLec+1] != '\0'){ strcat(out, " ");indexEcrit++;}
-        }else if(str[indexLec] == '2'){
-            if (str[indexLec+1] != '>') {
-                strncat(out, str+indexLec, 1);indexEcrit++;
-            }else{
-                if(indexLec!=0){if(str[indexLec-1]!=' ') strcat(out," ");indexEcrit++;}
-                strncat(out, str+indexLec, 2);indexEcrit++;
-                indexLec++;
-                if(str[indexLec+1] == '>'){
-                    strncat(out, str+indexLec, 2);indexEcrit+=2;
-                    indexLec++;
-                }else if(str[indexLec+1] == '&'){
-                    if(str[indexLec+1] == '1'){
-                        strncat(out, str+indexLec, 2);indexEcrit+=2;
-                        indexLec++;
-                    }
-                }
-                if (str[indexLec+1] != ' ' && str[indexLec+1] != '\0') {strcat(out, " ");indexEcrit++;}
-            }
-        }else if(str[indexLec] == '$'){
-            if(indexLec!=0){if(str[indexLec-1]!=' ') strcat(out," ");indexEcrit++;}
-            strncat(out, str+indexLec, 1);indexEcrit++;
-            if(str[indexLec+1] == '{'){
-                indexLec+=2;
-                while (str[indexLec] != '\0') {
-                    if (str[indexLec] == '}' && (indexLec == 0 || str[indexLec - 1] != '\\')) {
-                        break;  // Stop when a non-escaped '}' is found
-                    }
-                    out[indexEcrit] = str[indexLec];
-                    indexLec++;
-                    indexEcrit++;
-                }
-                if (str[indexLec+1] != ' ' && str[indexLec+1] != '\0') {strcat(out, " ");indexEcrit++;}
-            }
-        }else if(str[indexLec] == ' '){
-            if(indexLec!=0){if(str[indexLec-1]!=' ') strcat(out," ");indexEcrit++;}
-        }
-        }else{
-            strncat(out, str+indexLec, 1);
-            indexEcrit++;
-        }
-        indexLec++;
+    if (str == NULL || s == NULL || max == 0) {
+        return -1; // Indicate an error due to invalid inputs
     }
-    out[indexEcrit]='\0';
-    if(indexEcrit <= max ){
-        strncpy(str, out, max);  // Copy at most 'max' characters from 'out' to 'str'
-        str[max-1] = '\0';
-    }else{
-        strncpy(str, out, max - 1);  // Copy 'max - 1' characters from 'out' to 'str'
-        str[max - 1] = '\0'; 
-    }
-	free(out);
-    return strlen(str);
+
+    size_t len = strlen(str);
+
+    return len;
 }
-
 
 int substenv(char* str, size_t max) {
     if (str == NULL || max <= 0) {
@@ -280,63 +169,6 @@ int substenv(char* str, size_t max) {
     str[strLen] = '\0';
     return strLen;
 }
-
-
-
-//Only works for ${..}
-/*
-int substenv(char* str, size_t max) {
-    if (str == NULL || max <= 0) {
-        printf("Invalid parameters\n");
-        return -1; // Invalid parameters
-    }
-
-    size_t strLen = strlen(str);
-    size_t dif = 0;
-
-    for (size_t i = 0; i < strLen; ++i) {
-        if (str[i] == '$' && i + 1 < strLen) {
-            if (str[i + 1] == '{') {
-                size_t start = i + 2;
-                size_t end = start;
-
-                while (end < strLen && str[end] != '}') {
-                    ++end;
-                }
-
-                if (end < strLen) {
-                    char varName[64];
-                    strncpy(varName, str + start, end - start);
-                    varName[end - start] = '\0';
-
-                    char* envValue = getenv(varName);
-
-                    if (envValue != NULL) {
-                        size_t envValueLen = strlen(envValue);
-                        size_t replaceLen = end - i + 1;
-
-                        if (envValueLen <= max - strLen + replaceLen) {
-                            memmove(str + i + envValueLen, str + end + 1, strLen - end);
-                            memcpy(str + i, envValue, envValueLen);
-                            strLen = strLen - replaceLen + envValueLen;
-                            i += envValueLen - 1;
-                        } else {
-                            printf("Insufficient space to substitute the variable\n");
-                            return -1; // Insufficient space
-                        }
-                    } else {
-                        printf("Environment variable '%s' not found\n", varName);
-                        // Handle the case where the environment variable is not found as needed
-                    }
-                }
-            }
-        }
-    }
-
-    str[strLen] = '\0';
-    return strLen;
-}
-*/
 
 
 int strcut(char* str, char sep, char** tokens, size_t max) {
