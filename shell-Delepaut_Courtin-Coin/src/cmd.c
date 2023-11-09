@@ -31,49 +31,48 @@
  */
 int exec_cmd(cmd_t* p) {
     int status = 0;
-
-    if (p->stin != 0) {
-        dup2(p->stin, STDIN_FILENO); // Redirect input
-        close(p->stin); // Close the file descriptor
+    
+    if(p->path == NULL || p->argv == NULL){
+    	write(p->sterr,"Error: both path and argv are NULL",strlen("Error: both path and argv are NULL"));
+    	return -1;
     }
+    
 
-    if (p->stout != 1) {
-        dup2(p->stout, STDOUT_FILENO); // Redirect output
-        close(p->stout); // Close the file descriptor
-    }
-
-    if (p->sterr != 2) {
-        dup2(p->sterr, STDERR_FILENO); // Redirect standard error
-        close(p->sterr); // Close the file descriptor
-    }
-	if (strcmp(p->path, "exit") == 0) {
-        		status = exit_shell(0, p->sterr);
-        		return status;
-        }else if( strcmp(p->path, "cd") == 0 ){
-        	status = cd(p->argv[0], p->sterr);
-        	return status;
-        }
         pid_t pid = fork();
+        
         if (pid == 0) {
             // Child process
-            if (is_builtin(p->path)) {
-   		// If it's a built-in command, execute the built-in functionality
-        			status = builtin(p);
-        			printf("Command Executed: %s %s\n", p->path, p->argv[0]);
-        			return status;
-            } else {
-                // Close file descriptors before executing the command
-                for (int i = 0; i < MAX_CMD_SIZE; i++) {
-                   if (p->fdclose[i] != -1) {
-                      close(p->fdclose[i]);
-                    }
-                }
+		
+	if (p->stin != STDIN_FILENO) {
+            if (dup2(p->stin, STDIN_FILENO) == -1) {
+                perror("dup2 stin");
+                exit(EXIT_FAILURE);
+            }
+            close(p->stin);
+        }
+
+        if (p->stout != STDOUT_FILENO) {
+            if (dup2(p->stout, STDOUT_FILENO) == -1) {
+                perror("dup2 stout");
+                exit(EXIT_FAILURE);
+            }
+            close(p->stout);
+        }
+
+        if (p->sterr != STDERR_FILENO) {
+            if (dup2(p->sterr, STDERR_FILENO) == -1) {
+                perror("dup2 sterr");
+                exit(EXIT_FAILURE);
+            }
+            close(p->sterr);
+        }
+		
                 // Execute non-built-in commands using execvp
                 if (execvp(p->path, p->argv) == -1) {
-                    perror("Command execution failed");
+                    perror("Command execution failed or Command not found");
                     exit(EXIT_FAILURE);
                 }
-            }
+
         } else if (pid < 0) {
             // Fork failed
             perror("Fork failed");
@@ -104,8 +103,9 @@ int init_cmd(cmd_t* p) {
     p->stin = 0;
     p->stout = 1;
     p->sterr = 2;
-    p->wait = 0; //initialise le bg processus par default
+    p->wait = 1; //initialise le bg processus par default
     p->path = NULL;
+    
     p->next = NULL;
     p->next_success = NULL;
     p->next_failure = NULL;
@@ -121,60 +121,6 @@ int init_cmd(cmd_t* p) {
 
 
 
-/**
- * @brief La chaine passée en argument est-elle un séparateur ?
- *
- * @param tok La chaine de caractères à tester
- * @return 1 si tok est un séparateur
- *         0 sinon
- */
-int is_sep(char * tok) {
-  if (!tok) return 0;
-  switch (tok[0])
-  {
-  case ';':
-    return 1;
-  case '!':
-    return 1;
-  case '|': // détecte | et ||
-    return 1;
-  case '&': // détecte & et &&
-    return 1;
-  case '>': // détecte >, >> et >&2
-    return 1;
-  case '<': // détecte <, <<, <<<
-    return 1;
-  case '2': // détecte 2>, 2>>, 2>&1
-    if (strlen(tok) >= 2 && tok[1] == '>')
-      return 1;
-    break;
-  }
-  return 0;
-}
-
-
-/**
- * @brief la chaine passée en argument est-elle un séparateur de redirection ?
- *
- * @param tok la chaine de caractères à tester
- * @return 1 si tok est une redirection simple
- *         0 si tok est un pipe ou & ou && ou || ou ;
- */
-int is_red(char * tok) {
-  switch (tok[0])
-  {
-  case ';':
-    return 0;
-  case '|': // détecte | et ||
-    return 0;
-  case '&': // détecte & et &&
-    return 0;
-  default :
-    return 1;
-  }
-}
-
-
 
 
 /**
@@ -186,158 +132,74 @@ int is_red(char * tok) {
  * @return 0 ou code d'erreur quand terminer
  */
 int parse_cmd(char* tokens[], cmd_t* cmds, size_t max) {
-        int finproc = 0, fd;
-    for (size_t i = 0; i < max; i++) {
-        if (i >= MAX_CMD_SIZE || tokens[i] == NULL) break;
-        if (!is_builtin(tokens[i])) {
-            printf("Commande invalide\n");
-            return 1;
-        } else {
-            cmds[finproc].pid = finproc;
-            cmds[finproc].status = 0;
-            cmds[finproc].path = tokens[i];
-            cmds[finproc].next = &cmds[finproc + 1];
-            int j = 0;
-            for (; i < MAX_CMD_SIZE && tokens[i] != NULL && !is_sep(tokens[i]); i++) {
-                cmds[finproc].argv[j] = tokens[i];
-                j++;
-            }
-            cmds[finproc].argv[j] = NULL;
-            if (i >= MAX_CMD_SIZE || tokens[i] == NULL) break;
-
-
-            find_sep: //si ce point est atteint tokens[i] est un séparateur
-      switch (tokens[i][0])
-      {
-      case ';': //on garde les parametres actuels
-        break;
-      case '|': // détecte | et ||
-        if (!strcmp(tokens[i], "||")) {
-          cmds[finproc].next_failure = &cmds[finproc+1]; //ajoute une suite si echec
-          cmds[finproc].next = NULL; //supprime la suite inconditionnelle
-        }
-        else { // |
-          if (pipe(cmds[finproc+1].fdclose)) { //crée un pipe
-            printf("Erreur pipe impossible\n");
-            return 1;
-          }
-          cmds[finproc].stout = cmds[finproc+1].fdclose[1]; //ajoute la sortie processus
-          cmds[finproc+1].stin = cmds[finproc+1].fdclose[0]; //ajoute l'entrée au prochain processus
-          cmds[finproc].fdclose[0] = cmds[finproc+1].fdclose[1];
-        }
-        break;
-      case '&': // détecte & et &&
-        if (!strcmp(tokens[i], "&&")) {
-          cmds[finproc].next_success = &cmds[finproc+1]; //ajoute une suite si succes
-          cmds[finproc].next = NULL; //supprime la suite inconditionnelle
-        }
-        else { // &
-          char * r = substenv("RECYCLE", envar);
-          if (r) {
-            cmds[finproc].fdclose[0] = open(r, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-            free(r);
-          } else {
-            r = default_recycle;
-            cmds[finproc].fdclose[0] = open(r, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-            export("RECYCLE", r, 2);
-          }
-          cmds[finproc].next = &cmds[finproc+1];
-          cmds[finproc].wait = 0;
-          if (cmds[finproc].stout == 1)
-            cmds[finproc].stout = cmds[finproc].fdclose[0];
-          if (cmds[finproc].sterr == 2)
-            cmds[finproc].sterr = cmds[finproc].fdclose[0];
-        }
-        break;
-      case '>': // détecte >, >> et >&2
-        if (cmds[finproc].stout > 2) close(cmds[finproc].stout);
-        if (!strcmp(tokens[i], ">")) {
-          if (i+1<MAX_CMD_SIZE && tokens[i+1]!=NULL) {
-            fd = open(tokens[i+1], O_WRONLY | O_CREAT | O_TRUNC, 0640);
-            if (fd != -1){
-              cmds[finproc].stout = fd;
-              cmds[finproc].fdclose[0] = fd;
-              i++;
-              break;
-            } else printf("Le fichier %s n'est pas valide\n", tokens[i+1]);
-          } else printf("Argument fichier manquant\n");
-          return 1;
-        }
-        if (!strcmp(tokens[i], ">>")) {
-          if (i+1<MAX_CMD_SIZE && tokens[i+1]!=NULL) {
-            fd = open(tokens[i+1], O_WRONLY | O_CREAT | O_APPEND, 0640);
-            if (fd != -1) {
-              cmds[finproc].stout = fd;
-              cmds[finproc].fdclose[0] = fd;
-              i++;
-              break;
-            } else printf("Le fichier %s n'est pas valide\n", tokens[i+1]);
-          } else printf("Argument fichier manquant\n");
-          return 1;
-        }
-        if (!strcmp(tokens[i], ">&2")) {
-          cmds[finproc].stout = cmds[finproc].sterr;
-        }
-        break;
-      case '<': // détecte <, <<, <<<
-        if (cmds[finproc].stin > 2) close(cmds[finproc].stin);
-        if (!strcmp(tokens[i], "<")) {
-          if (i+1<MAX_CMD_SIZE && tokens[i+1]!=NULL) {
-            fd = open(tokens[i+1], O_RDONLY, 0640);
-            if (fd != -1) {
-              cmds[finproc].stin = fd;
-              cmds[finproc].fdclose[0] = fd;
-              i++;
-              break;
-            } else printf("Le fichier %s n'est pas valide\n", tokens[i+1]);
-          } else printf("Argument fichier manquant\n");
-        } else printf("<< et <<< ne sont pas pris en charge\n");
-        return 1;
-      case '2': // détecte 2>, 2>>, 2>&1
-        if (cmds[finproc].sterr > 2) close(cmds[finproc].sterr);
-        if (!strcmp(tokens[i], "2>")) {
-          if (i+1<MAX_CMD_SIZE && tokens[i+1]!=NULL) {
-            fd = open(tokens[i+1], O_WRONLY | O_CREAT | O_TRUNC, 0640);
-            if (fd != -1){
-              cmds[finproc].sterr = fd;
-              cmds[finproc].fdclose[0] = fd;
-              i++;
-              break;
-            } else printf("Le fichier %s n'est pas valide\n", tokens[i+1]);
-          } else printf("Argument fichier manquant\n");
-          return 1;
-        }
-        if (!strcmp(tokens[i], "2>>")) {
-          if (i+1<MAX_CMD_SIZE && tokens[i+1]!=NULL) {
-            fd = open(tokens[i+1], O_WRONLY | O_CREAT | O_APPEND, 0640);
-            if (fd != -1) {
-              cmds[finproc].sterr = fd;
-              cmds[finproc].fdclose[0] = fd;
-              i++;
-              break;
-            } else printf("Le fichier %s n'est pas valide\n", tokens[i+1]);
-          } else printf("Argument fichier manquant\n");
-          return 1;
-        }
-        if (!strcmp(tokens[i], "2>&1")) {
-          cmds[finproc].sterr = cmds[finproc].stout;
-          break;
-        }
-      }
-      if (is_red(tokens[i])) {
-        i++;
-        if (i<MAX_CMD_SIZE && tokens[i]){
-          goto find_sep;
-        }
-        //else
-          break;
-      }
-
-
-
-
-            finproc++;
-        }
-    }
+    int idx_cmd = 0;
+    int idx_tok = 0;
+    int idx_argv = 0;
+    
+    while (tokens[idx_tok] != NULL){
+    
+    	// Verifier la redirection de sortie ">>"
+    	if(strcmp(tokens[idx_tok], ">>") == 0){
+    		cmds[idx_cmd].stout = open(tokens[idx_tok+1],O_WRONLY | O_APPEND | O_CREAT,0640);
+    		
+    		add_val(cmds[idx_cmd].fdclose,cmds[idx_cmd].stout);
+    		
+    		cmds[idx_cmd].argv[idx_argv] = NULL;
+    		
+    		idx_tok += 2;
+    		continue;
+    	}
+    	
+    	// Vérifier l'Operateur & (en arriere plan)
+    	if (strcmp(tokens[idx_tok],"&")==0){
+    		cmds[idx_cmd].wait = 0;
+    		
+    		cmds[idx_cmd].argv[idx_argv] = NULL;
+    		
+    		if(tokens[idx_tok] != NULL && strcmp(tokens[idx_tok], "&&")==0){
+    			cmds[idx_cmd].next_success = &cmds[idx_cmd+1];
+    		} else if (tokens[idx_tok] != NULL && strcmp(tokens[idx_tok],"||") == 0){
+    			cmds[idx_cmd].next_failure = &cmds[idx_cmd+1];
+    		}
+    		idx_cmd++;
+    		idx_argv = 0;
+    		idx_tok++;
+    		continue;
+    	}
+    	
+    	if(cmds[idx_cmd].path == NULL){
+    		cmds[idx_cmd].path = tokens[idx_tok];
+    	}
+    	
+    	cmds[idx_cmd].argv[idx_argv] = tokens[idx_tok];
+    	
+    	idx_tok++;
+    	idx_argv++;
+	}
     return 0;  // Return 0 or handle error codes accordingly
+}
+
+void add_val(int *fdclose, int val) {
+    int i = 0;
+    while (fdclose[i] != -1 && fdclose[i] != 0) {
+        i++;
+    }
+    fdclose[i] = val;
+}
+
+
+void add_fd(int *fdclose,int fd){
+	int i = 0;
+	while(fdclose[i] != -1 && fdclose[i] !=0){
+		i++;
+	}
+	fdclose[i] = fd;
+}
+	
+void merge_fdclose(int *dest,int *src){
+	int i = 0;
+	while(src[i] != -1 && src[i] != 0){
+		add_fd(dest,src[i]);
+		i++;
+	}	
 }
