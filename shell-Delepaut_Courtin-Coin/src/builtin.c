@@ -27,11 +27,11 @@ int is_builtin(const char* cmd) {
 
 int builtin(cmd_t* cmd) {
   if (strcmp(cmd->path, "cd") == 0) {
-        return cd(cmd->argv[0], cmd->sterr);
+        return cd(cmd->argv[1], cmd->sterr);
     } else if (strcmp(cmd->path, "exit") == 0) {
         return exit_shell(0, cmd->stout);
     }else if (strcmp(cmd->path, "export") == 0) {
-        return export(cmd->argv[0],cmd->argv[1],cmd->sterr);
+        return export(cmd->argv[1],cmd->argv[2],cmd->sterr);
     }else if (strcmp(cmd->path, "unset") == 0) {
        return unset(cmd->argv[1]);
     }
