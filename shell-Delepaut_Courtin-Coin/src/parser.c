@@ -78,14 +78,137 @@ if (str == NULL) {
 	return strlen(str);
 }
 
-int separate_s(char* str, char* s, size_t max) {
+int separate_s(char* str, const char* s, size_t max) {
     if (str == NULL || s == NULL || max == 0) {
         return -1; // Indicate an error due to invalid inputs
     }
 
-    size_t len = strlen(str);
+    size_t newLen = 0;
+    int idx_str = 0;
 
-    return len;
+    // Create a temporary buffer
+    char* tmp = (char*)malloc(max);
+
+    if (tmp == NULL) {
+        return -1; // Allocation error
+    }
+
+    while (str[idx_str] != '\0' && newLen < max - 1) {
+        char character = str[idx_str];
+	printf("tmp [idx_str]:%s\n",tmp);
+        if (strchr(s, character) != NULL) {
+            // Handle special characters
+            switch (character) {
+            	case ';':
+            		tmp[newLen++] = ' ';
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = ' ';
+            		break;
+                case '&':
+                    if (str[idx_str + 1] == '&') {
+                        // Handle '&&' case
+                        tmp[newLen++] = ' '; // Insert space before '&&'
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = ' '; // Insert space after '&&'
+                        idx_str++; // Skip one character for '&'
+                    } else if (str[idx_str + 1] == '>') {
+                        // Handle '&>' case
+                        tmp[newLen++] = ' '; // Insert space before '&>'
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = ' '; // Insert space after '&>'
+                        idx_str++; // Skip one character for '>'
+                    } else {
+                        // Handle '&' case
+                        tmp[newLen++] = ' '; // Insert space before '&'
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = ' '; // Insert space after '&'
+                    }
+                    break;
+                // Handle other cases similarly with spaces before and after
+                case '|':
+                    if (str[idx_str + 1] == '|') {
+                        // Handle '||' case
+                        tmp[newLen++] = ' ';
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = ' ';
+                        idx_str++; // Skip one character for '|'
+                    } else {
+                        // Handle '|' case
+                        tmp[newLen++] = ' ';
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = ' ';
+                    }
+                    break;
+                case '<':
+                    // Handle '<' case
+                    tmp[newLen++] = ' ';
+                    tmp[newLen++] = character;
+                    tmp[newLen++] = ' ';
+                    break;
+                case '>':
+                    if (str[idx_str + 1] == '>') {
+                        // Handle '>>' case
+                        tmp[newLen++] = ' ';
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = ' ';
+                        idx_str++; // Skip one character for '>'
+                    } else {
+                        // Handle '>' case
+                        tmp[newLen++] = ' ';
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = ' ';
+                    }
+                    break;
+                case '2':
+                    if (str[idx_str + 1] == '>' && str[idx_str + 2] == '>') {
+                        // Handle '2>>' case
+                        tmp[newLen++] = ' ';
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = str[idx_str + 2];
+                        tmp[newLen++] = str[idx_str + 3];
+                        tmp[newLen++] = ' ';
+                        idx_str += 2; // Skip two characters for '>>'
+                    } else if (str[idx_str + 1] == '>') {
+                        // Handle '2>' case
+                        tmp[newLen++] = ' ';
+                        tmp[newLen++] = character;
+                        tmp[newLen++] = str[idx_str + 1];
+                        tmp[newLen++] = ' ';
+                        idx_str++; // Skip one character for '>'
+                    }
+                    break;
+                default:
+                    // Do nothing
+                    break;
+            }
+        }else{// Copy non-special character to temporary buffer
+            tmp[newLen] = character;
+            newLen++;
+        }
+
+        idx_str++;
+    }
+    
+    printf("tmp = %s newLen = %ld max = %ld\n",tmp,newLen,max);
+    
+    // Null-terminate the temporary buffer
+    tmp[newLen] = '\0';
+
+    // Copy the modified string back to the original string
+    strcpy(str,tmp);
+    if(str == NULL){
+    	printf("Error Copy");
+    	return -1;
+    }
+
+    // Free the temporary buffer
+    free(tmp);
+
+    return 0; // Success
 }
 
 int substenv(char* str, size_t max) {
