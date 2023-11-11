@@ -137,7 +137,17 @@ int parse_cmd(char* tokens[], cmd_t* cmds, size_t max) {
     int idx_argv = 0;
     
     while (tokens[idx_tok] != NULL){
-    
+
+	//Verifie si c'est un ";" pour créer une nouvelle commande
+	if(strcmp(tokens[idx_tok], ";") == 0){
+    		cmds[idx_cmd].next = &cmds[idx_cmd+1];
+		
+    		idx_cmd++;
+    		idx_argv = 0;
+    		idx_tok++;	
+    		continue;
+    	}
+	    
     	// Verifier la redirection de sortie ">>"
     	if(strcmp(tokens[idx_tok], ">>") == 0){
     		cmds[idx_cmd].stout = open(tokens[idx_tok+1],O_WRONLY | O_APPEND | O_CREAT,0640);
