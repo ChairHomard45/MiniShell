@@ -45,7 +45,14 @@ int exec_cmd(cmd_t* p) {
         pid_t pid = fork();
         
         if (pid == 0) {
-            // Child process
+        // Child process
+	for (int i = 0; i < MAX_CMD_SIZE; i++) {
+    		if (p->fdclose[i] != -1) {
+     			close(p->fdclose[i]);
+	   	}
+	}
+
+
 		
 	if (p->stin != STDIN_FILENO) {
             if (dup2(p->stin, STDIN_FILENO) == -1) {
