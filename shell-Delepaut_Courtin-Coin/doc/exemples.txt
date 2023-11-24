@@ -1,0 +1,31 @@
+cd src
+cd ..
+exit
+ls
+sleep 5 &
+ls; echo "Bonjour"; ls -l; 
+ls -l > test.txt; cat test.txt
+cat < test.txt
+ls -l >> test.txt
+ls -z 2> erreur.txt
+ls -z 2>> erreur.txt 
+echo "message erreur" >&2
+cat fichier_inexistant.txt 2>&1
+>&2 et 2>&1 à voir
+ls -l |  wc -l
+export var "ma variable"
+echo $var
+unset var
+ls -l && echo "ça fonctionne"
+ls -z && echo "ça fonctionne"
+ls -z || echo "Failed"
+ls -l || echo "ça fonctionne"
+history
+!1
+HELP
+
+
+
+
+
+
